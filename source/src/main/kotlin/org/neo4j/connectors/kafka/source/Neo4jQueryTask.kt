@@ -110,7 +110,7 @@ class Neo4jQueryTask : SourceTask() {
             "value" to
                 (record.get(config.queryStreamingProperty).asObject() as? Long
                     ?: throw InvalidDataException(
-                        "Returned record does not contain a valid field ${config.queryStreamingProperty} (record.get returned '${record.get(config.queryStreamingProperty)}', expected a long value)."))),
+                        "Returned record does not contain a valid field ${config.queryStreamingProperty} (expected a long value, was ${record.get(config.queryStreamingProperty).type().name()})."))),
         config.topic,
         null,
         schema,
