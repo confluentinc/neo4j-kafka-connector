@@ -31,16 +31,17 @@ import org.neo4j.connectors.kafka.configuration.AuthenticationType
 import org.neo4j.connectors.kafka.configuration.Neo4jConfiguration
 
 /**
- * Pure unit test (no Testcontainers) proving that [Neo4jQueryTask.start] does not log the
- * configured streaming-property offset value at INFO. That value is read from the customer's Neo4j
- * query result (a database column value), so leaking it into the INFO log would expose customer
- * data. INFO logging for this logger is raised in `src/test/resources/simplelogger.properties` so
- * the message is captured.
+ * Pure unit test (no Testcontainers) proving that [Neo4jQueryTask.start] (and the [resumeFrom] it
+ * calls) does not log the configured streaming-property offset value at any level. That value is
+ * read from the customer's Neo4j query result (a database column value), so leaking it into the log
+ * would expose customer data. The logger is raised to DEBUG in
+ * `src/test/resources/simplelogger.properties` so both the INFO resume marker and the DEBUG
+ * resumeFrom line are captured.
  */
 class Neo4jQueryTaskOffsetLoggingTest {
 
   @Test
-  fun `start must not log the streaming-property offset value at INFO`() {
+  fun `start must not log the streaming-property offset value at INFO or DEBUG`() {
     // Synthetic, recognizable stored offset value standing in for a customer column value.
     val canaryOffset = 987654321012345L
     // Synthetic literal embedded in the Cypher query. config.partition carries the query text,
@@ -62,10 +63,11 @@ class Neo4jQueryTaskOffsetLoggingTest {
               SourceConfiguration.QUERY_STREAMING_PROPERTY to "timestamp"))
     }
 
-    // The offset value (a customer column value) must not appear in the INFO log.
+    // The offset value (a customer column value) must not appear at any level — neither the
+    // start() INFO line nor the resumeFrom() DEBUG line (both are captured here).
     assertFalse(
         captured.contains(canaryOffset.toString()),
-        "streaming-property offset value must not be logged at INFO, but was found in:\n$captured")
+        "streaming-property offset value must not be logged at INFO or DEBUG, but was found in:\n$captured")
     // The Cypher query text (which can embed literal PII) must not appear at INFO either.
     assertFalse(
         captured.contains(canaryQueryLiteral),
