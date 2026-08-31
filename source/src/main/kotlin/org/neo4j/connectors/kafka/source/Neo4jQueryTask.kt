@@ -50,10 +50,12 @@ class Neo4jQueryTask : SourceTask() {
 
     offset = AtomicLong(resumeFrom(config))
     // offset.get() is the configured streaming-property value read from the customer's
-    // Neo4j query result (a database column value), so it must not be logged at INFO.
-    // Log the Kafka source partition marker instead; trace the raw offset at DEBUG only.
-    log.info("resuming from stored offset for partition: {}", config.partition)
-    log.debug("resuming from offset: {}", offset.get())
+    // Neo4j query result (a database column value), so it must not be logged at all (not even
+    // at DEBUG). config.partition embeds the customer's Cypher query (which can carry literal
+    // PII), so log only a sanitized marker with the "query" entry removed.
+    log.info(
+        "resuming from stored offset for partition: {}",
+        config.partition.filterKeys { it != "query" })
   }
 
   override fun stop() {
