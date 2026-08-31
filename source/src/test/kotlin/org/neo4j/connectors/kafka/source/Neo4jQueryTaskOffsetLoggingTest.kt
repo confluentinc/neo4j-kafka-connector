@@ -43,6 +43,9 @@ class Neo4jQueryTaskOffsetLoggingTest {
   fun `start must not log the streaming-property offset value at INFO`() {
     // Synthetic, recognizable stored offset value standing in for a customer column value.
     val canaryOffset = 987654321012345L
+    // Synthetic literal embedded in the Cypher query. config.partition carries the query text,
+    // so a naive partition dump would leak this at INFO; it must not appear there.
+    val canaryQueryLiteral = "SECRET_QUERY_LITERAL_4b2e9d"
     val task = Neo4jQueryTask()
     task.initialize(taskContextWithStoredOffset("timestamp", canaryOffset))
 
@@ -54,7 +57,8 @@ class Neo4jQueryTaskOffsetLoggingTest {
               SourceConfiguration.STRATEGY to SourceType.QUERY.toString(),
               SourceConfiguration.START_FROM to StartFrom.EARLIEST.toString(),
               SourceConfiguration.QUERY_TOPIC to UUID.randomUUID().toString(),
-              SourceConfiguration.QUERY to "MATCH (n:Test) RETURN n.timestamp AS timestamp",
+              SourceConfiguration.QUERY to
+                  "MATCH (n:Test) WHERE n.token = '$canaryQueryLiteral' RETURN n.timestamp AS timestamp",
               SourceConfiguration.QUERY_STREAMING_PROPERTY to "timestamp"))
     }
 
@@ -62,7 +66,11 @@ class Neo4jQueryTaskOffsetLoggingTest {
     assertFalse(
         captured.contains(canaryOffset.toString()),
         "streaming-property offset value must not be logged at INFO, but was found in:\n$captured")
-    // Prove the resume INFO branch actually ran (so the assertion above is meaningful).
+    // The Cypher query text (which can embed literal PII) must not appear at INFO either.
+    assertFalse(
+        captured.contains(canaryQueryLiteral),
+        "Cypher query text must not be logged at INFO, but was found in:\n$captured")
+    // Prove the resume INFO branch actually ran (so the assertions above are meaningful).
     assertTrue(
         captured.contains("resuming from stored offset for partition"),
         "expected the resume INFO log to be captured, got:\n$captured")
