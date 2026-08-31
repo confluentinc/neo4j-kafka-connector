@@ -130,7 +130,9 @@ class Neo4jQueryTask : SourceTask() {
     if (!config.ignoreStoredOffset &&
         offset["value"] is Long &&
         offset["property"] == config.queryStreamingProperty) {
-      log.debug("previously stored offset is {}", offset["value"])
+      // Don't log the raw offset value here either: offset["value"] is the customer
+      // streaming-property column value. The property name is a safe correlator.
+      log.debug("resuming from previously stored offset for property {}", config.queryStreamingProperty)
       return offset["value"] as Long
     }
 
