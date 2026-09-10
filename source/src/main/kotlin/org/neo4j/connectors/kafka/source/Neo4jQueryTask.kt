@@ -49,7 +49,13 @@ class Neo4jQueryTask : SourceTask() {
     config = SourceConfiguration(settings)
 
     offset = AtomicLong(resumeFrom(config))
-    log.info("resuming from offset: ${offset.get()}")
+    // offset.get() is the configured streaming-property value read from the customer's
+    // Neo4j query result (a database column value), so it must not be logged at all (not even
+    // at DEBUG). config.partition embeds the customer's Cypher query (which can carry literal
+    // PII), so log only a sanitized marker with the "query" entry removed.
+    log.info(
+        "resuming from stored offset for partition: {}",
+        config.partition.filterKeys { it != "query" })
   }
 
   override fun stop() {
@@ -124,7 +130,9 @@ class Neo4jQueryTask : SourceTask() {
     if (!config.ignoreStoredOffset &&
         offset["value"] is Long &&
         offset["property"] == config.queryStreamingProperty) {
-      log.debug("previously stored offset is {}", offset["value"])
+      // Don't log the raw offset value here either: offset["value"] is the customer
+      // streaming-property column value. The property name is a safe correlator.
+      log.debug("resuming from previously stored offset for property {}", config.queryStreamingProperty)
       return offset["value"] as Long
     }
 
