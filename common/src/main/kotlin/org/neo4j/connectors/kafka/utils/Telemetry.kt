@@ -16,7 +16,8 @@
  */
 package org.neo4j.connectors.kafka.utils
 
-import org.apache.kafka.common.utils.AppInfoParser
+import java.util.Properties
+import org.apache.kafka.common.config.ConfigDef
 import org.neo4j.connectors.kafka.configuration.Neo4jConfiguration
 import org.neo4j.connectors.kafka.configuration.helpers.VersionUtil
 import org.neo4j.driver.Config
@@ -75,8 +76,26 @@ object Telemetry {
         if (comment.isEmpty()) "" else " ($comment)")
   }
 
+  // Reads the Kafka client version directly off the classpath resource that
+  // org.apache.kafka.common.utils.AppInfoParser itself reads, instead of calling
+  // AppInfoParser: that class moved to org.apache.kafka.common.utils.internals in
+  // CP 8.4 / Apache Kafka 4.x, so referencing it breaks on 8.4 workers. ConfigDef
+  // is stable public API, unaffected by the move.
+  internal fun kafkaVersion(): String {
+    return try {
+      ConfigDef::class
+          .java
+          .classLoader
+          .getResourceAsStream("kafka/kafka-version.properties")
+          ?.use { stream -> Properties().apply { load(stream) }.getProperty("version")?.trim() }
+          ?: "unknown"
+    } catch (e: Exception) {
+      "unknown"
+    }
+  }
+
   internal fun kafkaConnectInformation(): String {
-    return String.format("kafka-connect/%s", AppInfoParser.getVersion())
+    return String.format("kafka-connect/%s", kafkaVersion())
   }
 
   internal fun platform(): String {
