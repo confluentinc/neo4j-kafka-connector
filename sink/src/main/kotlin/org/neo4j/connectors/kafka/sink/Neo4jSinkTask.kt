@@ -38,7 +38,11 @@ class Neo4jSinkTask : SinkTask() {
   }
 
   override fun stop() {
-    config.close()
+    // The framework can call stop() on a task whose start() never ran or never completed
+    // (e.g. a sibling task's startup failure aborts this one first), leaving config unset.
+    if (::config.isInitialized) {
+      config.close()
+    }
   }
 
   override fun put(records: Collection<SinkRecord>?) {
