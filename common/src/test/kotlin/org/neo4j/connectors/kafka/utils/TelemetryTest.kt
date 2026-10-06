@@ -17,7 +17,9 @@
 package org.neo4j.connectors.kafka.utils
 
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldStartWith
+import java.util.Properties
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.EnabledOnJre
 import org.junit.jupiter.api.condition.EnabledOnOs
@@ -29,6 +31,8 @@ import org.neo4j.connectors.kafka.utils.Telemetry.CONFLUENT_ENV
 import org.neo4j.connectors.kafka.utils.Telemetry.CONFLUENT_ENV_VALUE
 import org.neo4j.connectors.kafka.utils.Telemetry.connectorInformation
 import org.neo4j.connectors.kafka.utils.Telemetry.jreInformation
+import org.neo4j.connectors.kafka.utils.Telemetry.kafkaConnectInformation
+import org.neo4j.connectors.kafka.utils.Telemetry.kafkaVersion
 import org.neo4j.connectors.kafka.utils.Telemetry.neo4jDriverVersion
 import org.neo4j.connectors.kafka.utils.Telemetry.platform
 
@@ -37,6 +41,31 @@ class TelemetryTest {
   @Test
   fun `should return driver version`() {
     neo4jDriverVersion() shouldStartWith "neo4j-java"
+  }
+
+  @Test
+  fun `should read kafka version from classpath resource`() {
+    // kafka-clients on the test classpath ships kafka/kafka-version.properties,
+    // so this must resolve to a real version, never fall back to "unknown".
+    val expected =
+        Properties()
+            .apply {
+              Telemetry::class
+                  .java
+                  .classLoader
+                  .getResourceAsStream("kafka/kafka-version.properties")
+                  ?.use { load(it) }
+            }
+            .getProperty("version")
+            ?.trim()
+
+    expected shouldNotBe null
+    kafkaVersion() shouldBe expected
+  }
+
+  @Test
+  fun `should build kafka-connect telemetry using the resolved kafka version`() {
+    kafkaConnectInformation() shouldBe "kafka-connect/${kafkaVersion()}"
   }
 
   @Test
